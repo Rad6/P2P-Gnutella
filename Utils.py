@@ -1,0 +1,9 @@
+N                           = 3
+N_OF_NODES                  = 6
+TIME_HELLO_INTERVAL         = 2
+TIME_DELETE_INTERVAL        = 8
+TIME_SUDDEN_OFF_INTERVAL    = 10
+TIME_SUDDEN_OFF_DURATION    = 20
+LOSS_PROBABILITY            = 0.05
+TIME_SIMULATION             = 5 * 60
+T_HELLO                     = 0x001
