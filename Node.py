@@ -32,8 +32,7 @@ class Node:
         # self.lock_lasts     = threading.Lock()
         self.lasts          = {}
         self.on             = True
-        self.socket         = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind((self.ip, self.port))
+        self.createSocket()
 
     def __str__(self):
         return f"Node {self.id} = [IP: {self.ip}, Port: {self.port}]"
@@ -130,32 +129,50 @@ class Node:
                 else:
                     self.addRecvPayloadToList(_payload, self.unidir)
                 
-
+    def createSocket(self):
+        self.socket         = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind((self.ip, self.port))
 
 
 node = None
-
+queue = None
+t_recv_data =  None
+t_send_hello_neighbors = None
+t_delete_old_neighbors = None
+t_controller = None
+t_neighbor_finder = None
+e_on = True
+e_running = False
 
 def sendData(payload, address, drop_mode=True):
-    if random.randint(1, 20) != 1:
-        node.socket.sendto(pickle.dumps(payload), address)
-    else:
-        cprint(f" a packet is dropped", bcolors.FAIL)
+    try:
+        if random.randint(1, 20) != 1:
+            node.socket.sendto(pickle.dumps(payload), address)
+        else:
+            cprint(f" a packet is dropped", bcolors.FAIL)
+    except:
+        cprint(" Exception Accured in sending part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
 
 def recvData():
+    global e_on
     while True:
-        data, address = node.socket.recvfrom(10000)
-        obj = pickle.loads(data)
-        cprint(f" recved : from {obj['id']}, neighbors: {obj['neighbors']}")
-        node.parseRecvHello(obj)
+        e_on.wait()
+        try:
+            data, address = node.socket.recvfrom(10000)
+            obj = pickle.loads(data)
+            cprint(f" recved : from {obj['id']}, neighbors: {obj['neighbors']}")
+            node.parseRecvHello(obj)
+        except:
+            cprint(" Exception Accured in recv part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
 
 def findEnoughtNodes():
+    global e_on
     cprint("start trying to find new neighbors", bcolors.OKBLUE)
     with node.lock_all_lists:
         _len = len(list(node.neighbors))
     while  _len < N:
         node.lock_all_lists.acquire()
-
+        e_on.wait()
         if len(list(node.unidir)) != 0:
             chosen = random.sample(list(node.unidir), 1)[0]
             temp = node.unidir[chosen]
@@ -178,8 +195,11 @@ def findEnoughtNodes():
             sleep(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
             node.lock_all_lists.acquire()
 
-            if (chosen not in node.unidir) and (chosen not in node.neighbors):
+            # if (chosen not in node.unidir) and (chosen not in node.neighbors):
+            try:
                 del node.tobe[chosen]
+            except:
+                pass
 
         _len = len(list(node.neighbors)) 
         node.lock_all_lists.release()
@@ -188,8 +208,10 @@ def findEnoughtNodes():
      bcolors.OKGREEN)
 
 def helloNeighbors():
+    global e_on
     while True:
         with node.lock_all_lists:
+            e_on.wait()
             for item in node.neighbors:
                 sendData(node.createHelloPayload(\
                     node.neighbors[item]['id']), \
@@ -197,8 +219,10 @@ def helloNeighbors():
         sleep(TIME_HELLO_INTERVAL)
 
 def deleteOldNeighbors():
+    global t_neighbor_finder, e_on
     while True:
         with node.lock_all_lists:
+            e_on.wait()
             del_list = []
             prev_len = len(node.neighbors)
             for _id in node.neighbors:
@@ -208,27 +232,67 @@ def deleteOldNeighbors():
             for _id in del_list:
                 del node.neighbors[_id]
             if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
-                threading.Thread(target=findEnoughtNodes).start()
+                t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
+                t_neighbor_finder.setDaemon(False)
+                t_neighbor_finder.start()
         sleep(TIME_HELLO_INTERVAL)
 
 
-def runNode(queue, id, ip, port):
-    global node
-    node = Node(id, ip, port)
+def controller():
+    global queue, t_recv_data, t_send_hello_neighbors, t_delete_old_neighbors, \
+        t_controller, e_on, e_running
+    while True:
+        data = queue.get()
+        if data == "off":
+            e_on.clear()
+            node.socket.close()
+            cprint("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~OFFFFF~~~~~~~~~~", bcolors.WARNING)
+        
+        elif data == "on":
+            node.createSocket()
+            e_on.set()
+            cprint("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
+
+
+def runNode(_queue, _id, _ip, _port):
+    global node, queue, t_recv_data, t_send_hello_neighbors, \
+        t_delete_old_neighbors, t_controller, e_on, e_running
+    
+    queue = _queue
+    node = Node(_id, _ip, _port)
     print(node, " is running ... ")
+
+    e_on = threading.Event()
+    e_on.set()
+
+    e_running = threading.Event()
+    e_running.set()
 
     # Creating Services Thread
     t_recv_data = threading.Thread(target=recvData)
     t_send_hello_neighbors = threading.Thread(target=helloNeighbors)
     t_delete_old_neighbors = threading.Thread(target=deleteOldNeighbors)
+    t_controller = threading.Thread(target=controller)
+    t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
+
+    # set deamonity
+    t_recv_data.setDaemon(False)
+    t_send_hello_neighbors.setDaemon(False)
+    t_delete_old_neighbors.setDaemon(False)
+    t_neighbor_finder.setDaemon(False)
+    t_controller.setDaemon(False)
 
     # Starting Serveices Thread
     t_recv_data.start()
     t_send_hello_neighbors.start()
     t_delete_old_neighbors.start()
+    t_neighbor_finder.start()
+    t_controller.start()
 
-    findEnoughtNodes() # starts to find neighbors
-   
+    t_controller.join()
+    cprint("8888888888888888888 END of runNode 88888888888888888888888888888888")
+    # findEnoughtNodes() # starts to find neighbors 
+
 
 
 
