@@ -51,9 +51,12 @@ class Node:
                 'last_recv' : -1,
                 'neighbors' : [],
                 'ntimes'    : [],
+                'nnsent'    : 1,
+                'nnrecv'    : 0,
             }
         else:
             self.lasts[_to]['last_sent'] = last_sent
+            self.lasts[_to]['nnsent'] += 1
 
         payload = {
             'id'                : self.id,
@@ -100,10 +103,14 @@ class Node:
                 'last_sent' : -1,
                 'neighbors' : _payload['neighbors'],
                 'ntimes'    : [],
+                'nnsent'    : 0,
+                'nnrecv'    : 1,
             }
         else:
             self.lasts[_id]['last_recv'] = time()
             self.lasts[_id]['neighbors'] = _payload['neighbors']
+            self.lasts[_id]['nnrecv'] += 1
+
     
         prev_list = self.findIdInLists(_id)
         if prev_list != None:
@@ -289,6 +296,7 @@ def controller():
             e_running.clear()
             # TODO: add logs to file
             cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
+            cprint(f"{node.lasts}")
             queue_to_node.put("done")
             break
 
