@@ -1,6 +1,6 @@
 from Utils import *
 from time import time, sleep
-import sys, enum, random
+import sys, enum, random, traceback
 import multiprocessing, threading
 import socket, pickle
 
@@ -44,8 +44,13 @@ class Node:
 
         if _to not in self.lasts:
             self.lasts[_to] = {
+                'id'        : _to,
+                'ip'        : 'localhost',
+                'port'      : START_PORT + _to,
                 'last_sent' : last_sent,
                 'last_recv' : -1,
+                'neighbors' : [],
+                'ntimes'    : [],
             }
         else:
             self.lasts[_to]['last_sent'] = last_sent
@@ -88,11 +93,17 @@ class Node:
         
         if _id not in self.lasts:
             self.lasts[_id] = {
+                'id'        : _id,
+                'ip'        : _payload['ip'],
+                'port'      : _payload['port'],
                 'last_recv' : time(),
                 'last_sent' : -1,
+                'neighbors' : _payload['neighbors'],
+                'ntimes'    : [],
             }
         else:
             self.lasts[_id]['last_recv'] = time()
+            self.lasts[_id]['neighbors'] = _payload['neighbors']
     
         prev_list = self.findIdInLists(_id)
         if prev_list != None:
@@ -107,16 +118,22 @@ class Node:
 
         if NodeState.findEnoughtNodes == self.state:
             with self.lock_all_lists:
+
                 if self.id in neighbors_recv:
                     if len(self.neighbors) < N:
-                        self.addRecvPayloadToList(_payload, self.neighbors)
+                        if id_recv not in self.neighbors:
+                            self.addRecvPayloadToList(_payload, self.neighbors) # add
+                            node.lasts[id_recv]['ntimes'].append([time(), None])
+                        else:
+                            self.addRecvPayloadToList(_payload, self.neighbors) # update     
                     elif id_recv in self.neighbors:
-                        self.addRecvPayloadToList(_payload, self.neighbors)
+                        self.addRecvPayloadToList(_payload, self.neighbors) # update
                     else:
                         self.addRecvPayloadToList(_payload, self.unidir)
 
                 elif id_recv in self.tobe:
                     self.addRecvPayloadToList(_payload, self.neighbors)
+                    node.lasts[id_recv]['ntimes'].append([time(), None])
                 
                 elif id_recv in self.unidir:
                     self.addRecvPayloadToList(_payload, self.unidir)
@@ -146,6 +163,7 @@ def sendData(payload, address, drop_mode=True):
     try:
         if random.randint(1, 20) != 1:
             node.socket.sendto(pickle.dumps(payload), address)
+            cprint(f" send to {address[1] - START_PORT} time : {time()}")
         else:
             cprint(f" a packet is dropped", bcolors.FAIL)
     except:
@@ -158,10 +176,12 @@ def recvData():
         try:
             data, address = node.socket.recvfrom(10000)
             obj = pickle.loads(data)
-            cprint(f" recved : from {obj['id']}, neighbors: {obj['neighbors']}")
+            cprint(f" recved : from {obj['id']}, neighbors: {obj['neighbors']} time: {time()}")
+            
             node.parseRecvHello(obj)
-        except:
+        except Exception:
             cprint(" Exception Accured in recv part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
+            traceback.print_exc()
 
 def findEnoughtNodes():
     global e_on
@@ -175,19 +195,20 @@ def findEnoughtNodes():
             chosen = random.sample(list(node.unidir), 1)[0]
             temp = node.unidir[chosen]
             del node.unidir[chosen]
-            node.neighbors[chosen] = temp
+            node.neighbors[chosen] = temp # !important Fauuauakekkekk POPOPOPOPINT ---------------------------
+            node.lasts[temp['id']]['ntimes'].append([time(), None])
         else:
             chosen = random.randint(0, N_OF_NODES-1)
             while (chosen in node.neighbors) or (chosen == node.id):
                 chosen = random.randint(0, N_OF_NODES-1)
             
+            cprint(f" {chosen} is chosen")
             sendData(node.createHelloPayload(chosen), ('localhost', START_PORT + chosen))
             node.tobe[chosen] = {
                 'id' : chosen,
                 'ip' : 'localhost',
                 'port' : START_PORT + chosen
             }
-            cprint(f" {chosen} is chosen")
 
             node.lock_all_lists.release()
             sleep(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
@@ -202,7 +223,7 @@ def findEnoughtNodes():
         _len = len(list(node.neighbors)) 
         node.lock_all_lists.release()
     
-    cprint(f" ############ Now becomes {N} negibors : {list(node.neighbors)} ###########",\
+    cprint(f" ############ Now becomes {_len} negibors : {list(node.neighbors)} ###########",\
      bcolors.OKGREEN)
 
 def helloNeighbors():
@@ -224,10 +245,13 @@ def deleteOldNeighbors():
             del_list = []
             prev_len = len(node.neighbors)
             for _id in node.neighbors:
-                if time() - node.lasts[_id]['last_recv'] > TIME_DELETE_INTERVAL:
+                dur = time() - node.lasts[_id]['last_recv']
+                if  dur > TIME_DELETE_INTERVAL:
                     del_list.append(_id)
-                    cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL", bcolors.WARNING)
+                    cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL at last recv {node.lasts[_id]['last_recv']} and dur is {dur}", bcolors.WARNING)
             for _id in del_list:
+                cprint(f" aksdjflkasjdflk jasldkf jaklsdjfl k : {node.lasts[_id]['ntimes']} neighbors = {node.neighbors}")
+                node.lasts[_id]['ntimes'][-1][1] = time() # add exit time
                 del node.neighbors[_id]
             if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
                 t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
@@ -251,6 +275,10 @@ def controller():
             e_on.set()
             cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
 
+        elif data == "end":
+            # TODO: add logs to file
+            cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
+            break
 
 def runNode(_queue, _id, _ip, _port):
     global node, queue, t_recv_data, t_send_hello_neighbors, \
@@ -269,7 +297,7 @@ def runNode(_queue, _id, _ip, _port):
     # Creating Services Thread
     t_recv_data = threading.Thread(target=recvData)
     t_send_hello_neighbors = threading.Thread(target=helloNeighbors)
-    t_delete_old_neighbors = threading.Thread(target=deleteOldNeighbors)
+    t_delete_old_neighbors = threading.Thread(target=deleteOldNeighbors, name=f"deletneighbors = [{_id}], ")
     t_controller = threading.Thread(target=controller)
     t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
 

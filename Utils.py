@@ -6,9 +6,9 @@ TIME_DELETE_INTERVAL        = 8 / RATIO
 TIME_SUDDEN_OFF_INTERVAL    = 10 / RATIO
 TIME_SUDDEN_OFF_DURATION    = 20 / RATIO
 LOSS_PROBABILITY            = 0.05
-TIME_SIMULATION             = 5 * 60 / RATIO
+TIME_SIMULATION             = 5 * 6 / RATIO
 T_HELLO                     = 0x001
-START_PORT                  = 5000
+START_PORT                  = 6000
 
 class bcolors:
     HEADER = '\033[95m'
