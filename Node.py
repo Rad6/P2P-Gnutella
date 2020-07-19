@@ -25,13 +25,9 @@ class Node:
         self.port           = _port
         self.lock_all_lists = threading.Lock()
         self.neighbors      = {}
-        # self.lock_unidir    = threading.Lock()
         self.unidir         = {}
-        # self.lock_tobe      = threading.Lock()
         self.tobe           = {}
-        # self.lock_lasts     = threading.Lock()
         self.lasts          = {}
-        self.on             = True
         self.createSocket()
 
     def __str__(self):
@@ -44,17 +40,15 @@ class Node:
         self.on = False
 
     def createHelloPayload(self, _to):
-        
+        last_sent = time()
+
         if _to not in self.lasts:
-            last_sent = -1
-            last_recv = -1
             self.lasts[_to] = {
-                'last_sent' : -1,
+                'last_sent' : last_sent,
                 'last_recv' : -1,
             }
         else:
-            last_sent = self.lasts[_to]['last_sent']
-            last_recv = self.lasts[_to]['last_recv']
+            self.lasts[_to]['last_sent'] = last_sent
 
         payload = {
             'id'                : self.id,
@@ -62,17 +56,15 @@ class Node:
             'port'              : self.port,
             'type'              : T_HELLO,
             'neighbors'         : list(self.neighbors),
-            'last_sent'         : last_sent,
-            'last_recv'         : last_recv,
+            'last_sent'         : self.lasts[_to]['last_sent'],
+            'last_recv'         : self.lasts[_to]['last_recv'],
         }
-
-        self.lasts[_to]['last_sent'] = time()
 
         return payload
 
     def findIdInLists(self, _id):
         the_list = None
-        # with self.lock_all_lists:
+
         if _id in self.neighbors:
             the_list = self.neighbors
     
@@ -81,6 +73,7 @@ class Node:
     
         elif _id in self.tobe:
             the_list = self.tobe
+       
         return the_list
 
     def addRecvPayloadToList(self, _payload, the_list):
@@ -167,7 +160,7 @@ def recvData():
 
 def findEnoughtNodes():
     global e_on
-    cprint("start trying to find new neighbors", bcolors.OKBLUE)
+    cprint(" start trying to find new neighbors", bcolors.OKBLUE)
     with node.lock_all_lists:
         _len = len(list(node.neighbors))
     while  _len < N:
@@ -226,7 +219,7 @@ def deleteOldNeighbors():
             del_list = []
             prev_len = len(node.neighbors)
             for _id in node.neighbors:
-                if node.lasts[_id]['last_sent'] - node.lasts[_id]['last_recv'] > TIME_DELETE_INTERVAL:
+                if time() - node.lasts[_id]['last_recv'] > TIME_DELETE_INTERVAL:
                     del_list.append(_id)
                     cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL", bcolors.WARNING)
             for _id in del_list:
@@ -246,12 +239,12 @@ def controller():
         if data == "off":
             e_on.clear()
             node.socket.close()
-            cprint("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~OFFFFF~~~~~~~~~~", bcolors.WARNING)
+            cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~OFFFFF~~~~~~~~~~", bcolors.WARNING)
         
         elif data == "on":
             node.createSocket()
             e_on.set()
-            cprint("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
+            cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
 
 
 def runNode(_queue, _id, _ip, _port):
@@ -290,7 +283,7 @@ def runNode(_queue, _id, _ip, _port):
     t_controller.start()
 
     t_controller.join()
-    cprint("8888888888888888888 END of runNode 88888888888888888888888888888888")
+    cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
     # findEnoughtNodes() # starts to find neighbors 
 
 
