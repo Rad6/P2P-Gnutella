@@ -150,7 +150,8 @@ class Node:
 
 
 node = None
-queue = None
+queue_from_node = None
+queue_to_node = None
 t_recv_data =  None
 t_send_hello_neighbors = None
 t_delete_old_neighbors = None
@@ -172,6 +173,8 @@ def sendData(payload, address, drop_mode=True):
 def recvData():
     global e_on
     while True:
+        if not e_running.is_set():
+            break
         e_on.wait()
         try:
             data, address = node.socket.recvfrom(10000)
@@ -190,6 +193,8 @@ def findEnoughtNodes():
         _len = len(list(node.neighbors))
     while  _len < N:
         node.lock_all_lists.acquire()
+        if not e_running.is_set():
+            break
         e_on.wait()
         if len(list(node.unidir)) != 0:
             chosen = random.sample(list(node.unidir), 1)[0]
@@ -222,14 +227,17 @@ def findEnoughtNodes():
 
         _len = len(list(node.neighbors)) 
         node.lock_all_lists.release()
-    
-    cprint(f" ############ Now becomes {_len} negibors : {list(node.neighbors)} ###########",\
-     bcolors.OKGREEN)
+        if _len >= 3:
+            cprint(f" ############ Now becomes {_len} negibors : {list(node.neighbors)} ###########",\
+                bcolors.OKGREEN)
+            break
 
 def helloNeighbors():
     global e_on
     while True:
         with node.lock_all_lists:
+            if not e_running.is_set():
+                break
             e_on.wait()
             for item in node.neighbors:
                 sendData(node.createHelloPayload(\
@@ -241,6 +249,8 @@ def deleteOldNeighbors():
     global t_neighbor_finder, e_on
     while True:
         with node.lock_all_lists:
+            if not e_running.is_set():
+                break
             e_on.wait()
             del_list = []
             prev_len = len(node.neighbors)
@@ -261,10 +271,10 @@ def deleteOldNeighbors():
 
 
 def controller():
-    global queue, t_recv_data, t_send_hello_neighbors, t_delete_old_neighbors, \
+    global queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, t_delete_old_neighbors, \
         t_controller, e_on, e_running
     while True:
-        data = queue.get()
+        data = queue_from_node.get()
         if data == "off":
             e_on.clear()
             node.socket.close()
@@ -276,15 +286,18 @@ def controller():
             cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
 
         elif data == "end":
+            e_running.clear()
             # TODO: add logs to file
             cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
+            queue_to_node.put("done")
             break
 
-def runNode(_queue, _id, _ip, _port):
-    global node, queue, t_recv_data, t_send_hello_neighbors, \
+def runNode(_queue1, _queue2, _id, _ip, _port):
+    global node, queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, \
         t_delete_old_neighbors, t_controller, e_on, e_running
     
-    queue = _queue
+    queue_from_node = _queue1
+    queue_to_node = _queue2
     node = Node(_id, _ip, _port)
     print(node, " is running ... ")
 
@@ -316,7 +329,7 @@ def runNode(_queue, _id, _ip, _port):
     t_controller.start()
 
     t_controller.join()
-    cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
+    # cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
     # findEnoughtNodes() # starts to find neighbors 
 
 

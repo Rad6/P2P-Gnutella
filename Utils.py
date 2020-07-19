@@ -6,7 +6,7 @@ TIME_DELETE_INTERVAL        = 8 / RATIO
 TIME_SUDDEN_OFF_INTERVAL    = 10 / RATIO
 TIME_SUDDEN_OFF_DURATION    = 20 / RATIO
 LOSS_PROBABILITY            = 0.05
-TIME_SIMULATION             = 5 * 6 / RATIO
+TIME_SIMULATION             = 2 * 60 / RATIO
 T_HELLO                     = 0x001
 START_PORT                  = 6000
 

@@ -5,7 +5,8 @@ from Utils import *
 import random
 import time
 
-queues = []
+queues_main_to_procs = []
+queues_procs_to_main = []
 procs = []
 sudden_offs = set()
 running = True
@@ -23,14 +24,15 @@ def randomTermination():
         while rint in sudden_offs:
             rint = random.randint(0, N_OF_NODES-1)
         sudden_offs.add(rint)
-        queues[rint].put("off")
-        t_timer_oner = threading.Timer(TIME_SUDDEN_OFF_DURATION, turnOn, [rint, ])
-        t_timer_oner.setDaemon(False)
-        t_timer_oner.start()
-        print(f"Main  : sends off to node {rint}")
+        queues_main_to_procs[rint].put("off")
+        t_onner = threading.Thread(target=turnOn, args=(rint,))
+        # t_onner.setDaemon(False)
+        t_onner.start()
+        print(f"Main  :  sends off to node {rint}")
 
 def turnOn(_id):
-    queues[_id].put("on")
+    e_end.wait(TIME_SUDDEN_OFF_DURATION)
+    queues_main_to_procs[_id].put("on")
     sudden_offs.remove(_id)
 
 def endSimulation():
@@ -38,15 +40,17 @@ def endSimulation():
     time.sleep(TIME_SIMULATION)
     e_end.set()
     running = False
-    for queue in queues:
+    for queue in queues_main_to_procs:
         queue.put("end")
 
 
 if __name__ == "__main__":
     for i in range(N_OF_NODES):
-        q = multiprocessing.Queue()
-        queues.append(q)
-        procs.append(multiprocessing.Process(target=runNode, args=(q, i, 'localhost', START_PORT + i)))
+        q1 = multiprocessing.Queue()
+        q2 = multiprocessing.Queue()
+        queues_main_to_procs.append(q1)
+        queues_procs_to_main.append(q2)
+        procs.append(multiprocessing.Process(target=runNode, args=(q1, q2, i, 'localhost', START_PORT + i)))
 
     for item in procs:
         item.start()
@@ -63,8 +67,15 @@ if __name__ == "__main__":
     t_endSimulation.start()
 
     # t_randterminator.join()
-    for item in procs:
-        item.join()
+    # for item in procs:
+    #     item.join()
+
+    for i in range(N_OF_NODES):
+        msg = queues_procs_to_main[i].get()
+        if msg == "done":
+            procs[i].terminate()
+        else:
+            print("Unknown message from proc " + str(i))
 
     print("end of main proc")
     
