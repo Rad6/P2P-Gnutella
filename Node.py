@@ -108,7 +108,12 @@ class Node:
         if NodeState.findEnoughtNodes == self.state:
             with self.lock_all_lists:
                 if self.id in neighbors_recv:
-                    self.addRecvPayloadToList(_payload, self.neighbors)
+                    if len(self.neighbors) < N:
+                        self.addRecvPayloadToList(_payload, self.neighbors)
+                    elif id_recv in self.neighbors:
+                        self.addRecvPayloadToList(_payload, self.neighbors)
+                    else:
+                        self.addRecvPayloadToList(_payload, self.unidir)
 
                 elif id_recv in self.tobe:
                     self.addRecvPayloadToList(_payload, self.neighbors)
