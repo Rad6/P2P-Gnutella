@@ -29,12 +29,6 @@ class Node:
     def __str__(self):
         return f"Node {self.id} = [IP: {self.ip}, Port: {self.port}]"
  
-    def turnOn(self):
-        self.on = True
-    
-    def turnOff(self):
-        self.on = False
-
     def createHelloPayload(self, _to):
         last_sent = time()
 
