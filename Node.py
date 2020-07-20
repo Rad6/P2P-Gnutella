@@ -330,12 +330,10 @@ def motherLoger():
             tmp = {}
             acc_time = 0
             for each in value['ntimes']:
-                cprint(each)
                 if each[1] == None:
                     acc_time += ( node.end_time - each[0] )
                 else:
                     acc_time += ( each[1] - each[0] )
-            cprint(acc_time)
             tmp['id'] = value['id']
             tmp['ip address'] = value['ip']
             tmp['port'] = value['port']
