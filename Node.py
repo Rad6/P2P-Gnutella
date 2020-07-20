@@ -340,6 +340,22 @@ def motherLoger():
             tmp['accessibility'] = (acc_time / TIME_SIMULATION)*100
             final_log['Nodes accessibilities'].append(tmp)
 
+    final_log['Current uni list'] = []
+    for key, value in node.unidir.items():
+        tmp = {}
+        tmp['id'] = value['id']
+        tmp['ip address'] = value['ip']
+        tmp['port'] = value['port']
+        final_log['Current uni list'].append(tmp)
+
+    final_log['Current tobe list'] = []
+    for key, value in node.tobe.items():
+        tmp = {}
+        tmp['id'] = value['id']
+        tmp['ip address'] = value['ip']
+        tmp['port'] = value['port']
+        final_log['Current tobe list'].append(tmp)
+    
     file_name = 'node' + str(node.id) + '.json'
     with open(file_name, 'w') as f:
         json.dump(final_log, f, indent=4)
