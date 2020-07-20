@@ -5,9 +5,6 @@ import multiprocessing, threading
 import socket, pickle
 
 
-class NodeState(enum.Enum):
-    findEnoughtNodes = 0
-    normal = 1
 
 
 def cprint(msg, color=bcolors.ENDC, _node=True):
@@ -19,7 +16,6 @@ def cprint(msg, color=bcolors.ENDC, _node=True):
 
 class Node:
     def __init__(self, _id, _ip, _port):
-        self.state          = NodeState.findEnoughtNodes
         self.id             = _id
         self.ip             = _ip
         self.port           = _port
@@ -123,38 +119,37 @@ class Node:
         id_recv = _payload['id']
         neighbors_recv = _payload['neighbors']
 
-        if NodeState.findEnoughtNodes == self.state:
-            with self.lock_all_lists:
-
-                if self.id in neighbors_recv:
-                    if len(self.neighbors) < N:
-                        if id_recv not in self.neighbors:
-                            self.addRecvPayloadToList(_payload, self.neighbors) # add
-                            node.lasts[id_recv]['ntimes'].append([time(), None])
-                        else:
-                            self.addRecvPayloadToList(_payload, self.neighbors) # update     
-                    elif id_recv in self.neighbors:
-                        self.addRecvPayloadToList(_payload, self.neighbors) # update
-                    else:
-                        self.addRecvPayloadToList(_payload, self.unidir)
-
-                elif id_recv in self.tobe:
-                    self.addRecvPayloadToList(_payload, self.neighbors)
+        if self.id in neighbors_recv:
+            if len(self.neighbors) < N:
+                if id_recv not in self.neighbors:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # add
                     node.lasts[id_recv]['ntimes'].append([time(), None])
-                
-                elif id_recv in self.unidir:
-                    self.addRecvPayloadToList(_payload, self.unidir)
-                
-                elif id_recv in self.neighbors:
-                    self.addRecvPayloadToList(_payload, self.neighbors)
-
                 else:
-                    self.addRecvPayloadToList(_payload, self.unidir)
-                
+                    self.addRecvPayloadToList(_payload, self.neighbors) # update     
+            elif id_recv in self.neighbors:
+                self.addRecvPayloadToList(_payload, self.neighbors) # update
+            else:
+                self.addRecvPayloadToList(_payload, self.unidir)
+
+        elif id_recv in self.tobe:
+            self.addRecvPayloadToList(_payload, self.neighbors)
+            node.lasts[id_recv]['ntimes'].append([time(), None])
+        
+        elif id_recv in self.unidir:
+            self.addRecvPayloadToList(_payload, self.unidir)
+        
+        elif id_recv in self.neighbors:
+            self.addRecvPayloadToList(_payload, self.neighbors)
+
+        else:
+            self.addRecvPayloadToList(_payload, self.unidir)
+            
     def createSocket(self):
         self.socket         = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind((self.ip, self.port))
 
+    def closeSocket(self):
+        self.socket.close()
 
 node = None
 queue_from_node = None
@@ -174,8 +169,9 @@ def sendData(payload, address, drop_mode=True):
             cprint(f" send to {address[1] - START_PORT} time : {time()}")
         else:
             cprint(f" a packet is dropped", bcolors.FAIL)
-    except:
+    except Exception:
         cprint(" Exception Accured in sending part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
+        traceback.print_exc()
 
 def recvData():
     global e_on
@@ -189,11 +185,14 @@ def recvData():
             data, address = node.socket.recvfrom(10000)
             obj = pickle.loads(data)
             cprint(f" recved : from {obj['id']}, neighbors: {obj['neighbors']} time: {time()}")
-            
+
+            node.lock_all_lists.acquire()
             node.parseRecvHello(obj)
+            node.lock_all_lists.release()
         except Exception:
             cprint(" Exception Accured in recv part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
             traceback.print_exc()
+            node.lock_all_lists.release()
 
 def findEnoughtNodes():
     global e_on
@@ -304,7 +303,7 @@ def controller():
         data = queue_from_node.get()
         if data == "off":
             e_on.clear()
-            node.socket.close()
+            node.closeSocket()
             cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~OFFFFF~~~~~~~~~~", bcolors.WARNING)
         
         elif data == "on":
@@ -315,6 +314,7 @@ def controller():
         elif data == "end":
             e_running.clear()
             e_on.set() # releasing those are waiting
+            node.closeSocket()
             # TODO: add logs to file
 
             with node.lock_all_lists:
