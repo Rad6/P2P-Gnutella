@@ -3,6 +3,7 @@ from time import time, sleep
 import sys, enum, random, traceback
 import multiprocessing, threading
 import socket, pickle
+import json
 
 
 
@@ -25,6 +26,7 @@ class Node:
         self.tobe           = {}
         self.lasts          = {}
         self.createSocket()
+        self.end_time       = None
 
     def __str__(self):
         return f"Node {self.id} = [IP: {self.ip}, Port: {self.port}]"
@@ -295,7 +297,55 @@ def deleteOldNeighbors():
 
 
 def motherLoger():
-    cprint(" MOther Loger Does its Job")
+    cprint(" Mother Logger Does its Job")
+
+    final_log = {}
+
+    final_log["id"] = node.id
+    final_log["ip address"] = node.ip
+    final_log["port"] = node.port
+
+    final_log['Neighbors history'] = []
+    for key, value in node.lasts.items():
+        if len(value['ntimes']) != 0:
+            tmp = {}
+            tmp['id'] = value['id']
+            tmp['ip address'] = value['ip']
+            tmp['port'] = value['port']
+            tmp['packets sent'] = value['nnsent']
+            tmp['packets recv'] = value['nnrecv']
+            final_log['Neighbors history'].append(tmp)
+
+    final_log['Current valid neighbors'] = []
+    for key, value in node.neighbors.items():
+        tmp = {}
+        tmp['id'] = value['id']
+        tmp['ip address'] = value['ip']
+        tmp['port'] = value['port']
+        final_log['Current valid neighbors'].append(tmp)
+
+    final_log['Nodes accessibilities'] = []
+    for key, value in node.lasts.items():
+        if len(value['ntimes']) != 0:
+            tmp = {}
+            acc_time = 0
+            for each in value['ntimes']:
+                cprint(each)
+                if each[1] == None:
+                    acc_time += ( node.end_time - each[0] )
+                else:
+                    acc_time += ( each[1] - each[0] )
+            cprint(acc_time)
+            tmp['id'] = value['id']
+            tmp['ip address'] = value['ip']
+            tmp['port'] = value['port']
+            tmp['accessibility'] = (acc_time / TIME_SIMULATION)*100
+            final_log['Nodes accessibilities'].append(tmp)
+
+    file_name = 'node' + str(node.id) + '.json'
+    with open(file_name, 'w') as f:
+        json.dump(final_log, f, indent=4)
+
 
 def controller():
     global queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, t_delete_old_neighbors, \
@@ -313,6 +363,7 @@ def controller():
             cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
 
         elif data == "end":
+            node.end_time = time()
             e_running.clear()
             e_on.set() # releasing those are waiting
             node.closeSocket()

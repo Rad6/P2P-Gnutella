@@ -1,4 +1,5 @@
 .vscode
 .test
+*.json
 __pycache__
 test.py
