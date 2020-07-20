@@ -139,8 +139,15 @@ class Node:
             self.addRecvPayloadToList(_payload, self.unidir)
             
     def createSocket(self):
-        self.socket         = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind((self.ip, self.port))
+        try:
+            self.socket         = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.bind((self.ip, self.port))
+        except Exception as e:
+            cprint(" *********************** UNABLE TO CREATE SOCKET *********************", \
+                bcolors.FAIL)
+            raise
+
 
     def closeSocket(self):
         self.socket.close()
@@ -275,7 +282,7 @@ def deleteOldNeighbors():
                 del_list.append(_id)
                 cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL at last recv {node.lasts[_id]['last_recv']} and dur is {dur}", bcolors.WARNING)
         for _id in del_list:
-            cprint(f" aksdjflkasjdflk jasldkf jaklsdjfl k : {node.lasts[_id]['ntimes']} neighbors = {node.neighbors}")
+            # cprint(f" aksdjflkasjdflk jasldkf jaklsdjfl k : {node.lasts[_id]['ntimes']} neighbors = {node.neighbors}")
             node.lasts[_id]['ntimes'][-1][1] = time() # add exit time
             del node.neighbors[_id]
         if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
