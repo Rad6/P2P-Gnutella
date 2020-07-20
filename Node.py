@@ -199,9 +199,9 @@ def findEnoughtNodes():
     with node.lock_all_lists:
         _len = len(list(node.neighbors))
     while  _len < N:
-        node.lock_all_lists.acquire()
-        if not e_running.is_set():
+        if not e_running.is_set(): # Safe point to termination
             break
+        node.lock_all_lists.acquire()
         e_on.wait()
         if len(list(node.unidir)) != 0:
             chosen = random.sample(list(node.unidir), 1)[0]
@@ -242,9 +242,9 @@ def findEnoughtNodes():
 def helloNeighbors():
     global e_on
     while True:
-        with node.lock_all_lists:
-            if not e_running.is_set():
+        if not e_running.is_set(): # Safe point To Termination
                 break
+        with node.lock_all_lists:
             e_on.wait()
             for item in node.neighbors:
                 sendData(node.createHelloPayload(\
@@ -255,9 +255,9 @@ def helloNeighbors():
 def deleteOldNeighbors():
     global t_neighbor_finder, e_on
     while True:
-        with node.lock_all_lists:
-            if not e_running.is_set():
+        if not e_running.is_set(): # Safe Point To termination
                 break
+        with node.lock_all_lists:
             e_on.wait()
             del_list = []
             prev_len = len(node.neighbors)
@@ -277,6 +277,9 @@ def deleteOldNeighbors():
         sleep(TIME_HELLO_INTERVAL)
 
 
+def motherLoger():
+    cprint(" MOther Loger Does its Job")
+
 def controller():
     global queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, t_delete_old_neighbors, \
         t_controller, e_on, e_running
@@ -295,8 +298,12 @@ def controller():
         elif data == "end":
             e_running.clear()
             # TODO: add logs to file
+
+            with node.lock_all_lists:
+                motherLoger()
+
             cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
-            cprint(f"{node.lasts}")
+            # cprint(f"{node.lasts}")
             queue_to_node.put("done")
             break
 
