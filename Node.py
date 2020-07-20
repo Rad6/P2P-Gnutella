@@ -180,9 +180,11 @@ def sendData(payload, address, drop_mode=True):
 def recvData():
     global e_on
     while True:
-        if not e_running.is_set():
-            break
+
         e_on.wait()
+        if not e_running.is_set(): # Safe point to termination
+            break
+
         try:
             data, address = node.socket.recvfrom(10000)
             obj = pickle.loads(data)
@@ -199,10 +201,13 @@ def findEnoughtNodes():
     with node.lock_all_lists:
         _len = len(list(node.neighbors))
     while  _len < N:
-        if not e_running.is_set(): # Safe point to termination
-            break
         node.lock_all_lists.acquire()
+        
         e_on.wait()
+        if not e_running.is_set(): # Safe point to termination
+            node.lock_all_lists.release()
+            break
+        
         if len(list(node.unidir)) != 0:
             chosen = random.sample(list(node.unidir), 1)[0]
             temp = node.unidir[chosen]
@@ -233,7 +238,9 @@ def findEnoughtNodes():
                 pass
 
         _len = len(list(node.neighbors)) 
+
         node.lock_all_lists.release()
+
         if _len >= 3:
             cprint(f" ############ Now becomes {_len} negibors : {list(node.neighbors)} ###########",\
                 bcolors.OKGREEN)
@@ -242,38 +249,48 @@ def findEnoughtNodes():
 def helloNeighbors():
     global e_on
     while True:
-        if not e_running.is_set(): # Safe point To Termination
-                break
-        with node.lock_all_lists:
-            e_on.wait()
-            for item in node.neighbors:
-                sendData(node.createHelloPayload(\
-                    node.neighbors[item]['id']), \
-                        (node.neighbors[item]['ip'], node.neighbors[item]['port']))
+       
+        node.lock_all_lists.acquire()
+        e_on.wait()
+        if not e_running.is_set(): # Safe point to termination
+            node.lock_all_lists.release()
+            break
+
+        for item in node.neighbors:
+            sendData(node.createHelloPayload(\
+                node.neighbors[item]['id']), \
+                    (node.neighbors[item]['ip'], node.neighbors[item]['port']))
+
+        node.lock_all_lists.release()
         sleep(TIME_HELLO_INTERVAL)
 
 def deleteOldNeighbors():
     global t_neighbor_finder, e_on
     while True:
-        if not e_running.is_set(): # Safe Point To termination
-                break
-        with node.lock_all_lists:
-            e_on.wait()
-            del_list = []
-            prev_len = len(node.neighbors)
-            for _id in node.neighbors:
-                dur = time() - node.lasts[_id]['last_recv']
-                if  dur > TIME_DELETE_INTERVAL:
-                    del_list.append(_id)
-                    cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL at last recv {node.lasts[_id]['last_recv']} and dur is {dur}", bcolors.WARNING)
-            for _id in del_list:
-                cprint(f" aksdjflkasjdflk jasldkf jaklsdjfl k : {node.lasts[_id]['ntimes']} neighbors = {node.neighbors}")
-                node.lasts[_id]['ntimes'][-1][1] = time() # add exit time
-                del node.neighbors[_id]
-            if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
-                t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
-                t_neighbor_finder.setDaemon(False)
-                t_neighbor_finder.start()
+        node.lock_all_lists.acquire()
+
+        e_on.wait()
+        if not e_running.is_set(): # Safe point to termination
+            node.lock_all_lists.release()
+            break
+
+        del_list = []
+        prev_len = len(node.neighbors)
+        for _id in node.neighbors:
+            dur = time() - node.lasts[_id]['last_recv']
+            if  dur > TIME_DELETE_INTERVAL:
+                del_list.append(_id)
+                cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL at last recv {node.lasts[_id]['last_recv']} and dur is {dur}", bcolors.WARNING)
+        for _id in del_list:
+            cprint(f" aksdjflkasjdflk jasldkf jaklsdjfl k : {node.lasts[_id]['ntimes']} neighbors = {node.neighbors}")
+            node.lasts[_id]['ntimes'][-1][1] = time() # add exit time
+            del node.neighbors[_id]
+        if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
+            t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
+            t_neighbor_finder.setDaemon(False)
+            t_neighbor_finder.start()
+        
+        node.lock_all_lists.release()
         sleep(TIME_HELLO_INTERVAL)
 
 
@@ -297,6 +314,7 @@ def controller():
 
         elif data == "end":
             e_running.clear()
+            e_on.set() # releasing those are waiting
             # TODO: add logs to file
 
             with node.lock_all_lists:
