@@ -340,7 +340,7 @@ def motherLoger():
     final_log["ip_address"] = node.ip
     final_log["port"] = node.port
 
-    final_log['neighbors_history'] = []
+    final_log['all_neighbors_history'] = []
     for key, value in node.lasts.items():
         if len(value['ntimes']) != 0:
             tmp = {}
@@ -349,7 +349,7 @@ def motherLoger():
             tmp['port'] = value['port']
             tmp['packets_sent'] = value['nnsent']
             tmp['packets_recv'] = value['nnrecv']
-            final_log['neighbors_history'].append(tmp)
+            final_log['all_neighbors_history'].append(tmp)
 
     final_log['current_valid_neighbors'] = []
     for key, value in node.neighbors.items():
@@ -375,21 +375,71 @@ def motherLoger():
             tmp['accessibility'] = (acc_time / TIME_SIMULATION)*100
             final_log['nodes_accessibilities'].append(tmp)
 
-    final_log['current_uni_list'] = []
+    final_log['topology'] = {}
+    vertices = []
+    vertices.append(node.id)
+    for key, value in node.neighbors.items():
+        if key not in vertices:
+            vertices.append(key)
+        for each in node.lasts[key]['neighbors']:
+            if each not in vertices:
+                vertices.append(each)
+
+    # cprint("vertices: " + str(vertices))
+
+    final_log['topology']['vertices'] = []
+    for each in vertices:
+        tmp = {}
+        tmp['id'] = each
+        tmp['ip_address'] = 'localhost'
+        tmp['port'] = START_PORT + each
+        final_log['topology']['vertices'].append(tmp)
+
+    final_log['topology']['edges'] = []
+    for key, value in node.neighbors.items():
+        tmp = {}
+        tmp['from'] = node.id
+        tmp['to'] = value['id']
+        tmp['type'] = 'bidirectional'
+        final_log['topology']['edges'].append(tmp)
+
     for key, value in node.unidir.items():
         tmp = {}
-        tmp['id'] = value['id']
-        tmp['ip_address'] = value['ip']
-        tmp['port'] = value['port']
-        final_log['current_uni_list'].append(tmp)
+        tmp['from'] = value['id']
+        tmp['to'] = node.id
+        tmp['type'] = 'unidirectional'
+        final_log['topology']['edges'].append(tmp)
 
-    final_log['current_tobe_list'] = []
     for key, value in node.tobe.items():
         tmp = {}
-        tmp['id'] = value['id']
-        tmp['ip_address'] = value['ip']
-        tmp['port'] = value['port']
-        final_log['current_tobe_list'].append(tmp)
+        tmp['from'] = node.id
+        tmp['to'] = value['id']
+        tmp['type'] = 'tobe'
+        final_log['topology']['edges'].append(tmp)
+
+    for key, value in node.neighbors.items():
+        for each in node.lasts[key]['neighbors']:
+            tmp = {}
+            tmp['from'] = key
+            tmp['to'] = each
+            tmp['type'] = 'bidirectional'
+            final_log['topology']['edges'].append(tmp)
+
+    # final_log['current_uni_list'] = []
+    # for key, value in node.unidir.items():
+    #     tmp = {}
+    #     tmp['id'] = value['id']
+    #     tmp['ip_address'] = value['ip']
+    #     tmp['port'] = value['port']
+    #     final_log['current_uni_list'].append(tmp)
+
+    # final_log['current_tobe_list'] = []
+    # for key, value in node.tobe.items():
+    #     tmp = {}
+    #     tmp['id'] = value['id']
+    #     tmp['ip_address'] = value['ip']
+    #     tmp['port'] = value['port']
+    #     final_log['current_tobe_list'].append(tmp)
     
     file_name = 'node' + str(node.id) + '.json'
     with open(f"Results/{file_name}", 'w') as f:
