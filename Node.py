@@ -115,30 +115,57 @@ class Node:
 
         if self.id in neighbors_recv:
             if len(self.neighbors) < N:
-                if id_recv not in self.neighbors:
+                if id_recv in self.tobe:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # add
+                    node.lasts[id_recv]['ntimes'].append([time(), None])
+                    e_tobe_find.set()
+                elif id_recv in self.neighbors:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # update
+                elif id_recv in self.unidir:
                     self.addRecvPayloadToList(_payload, self.neighbors) # add
                     node.lasts[id_recv]['ntimes'].append([time(), None])
                 else:
-                    self.addRecvPayloadToList(_payload, self.neighbors) # update     
-            elif id_recv in self.neighbors:
-                self.addRecvPayloadToList(_payload, self.neighbors) # update
-            else:
-                self.addRecvPayloadToList(_payload, self.unidir)
+                    self.addRecvPayloadToList(_payload, self.unidir) # add
+                    # cprint(f" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ NOWAYYYYY {_payload['id']} @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", bcolors.FAIL)
+            else:   
+                if id_recv in self.neighbors:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # update
+                
+                elif id_recv in self.tobe:
+                    self.addRecvPayloadToList(_payload, self.unidir) # add
+                    e_tobe_find.set()
+                
+                elif id_recv in self.unidir:
+                    self.addRecvPayloadToList(_payload, self.unidir) # update
 
-        elif id_recv in self.tobe:
-            if len(self.neighbors) < N:
-                self.addRecvPayloadToList(_payload, self.neighbors) # add
-                node.lasts[id_recv]['ntimes'].append([time(), None])
-        
-        elif id_recv in self.unidir:
-            self.addRecvPayloadToList(_payload, self.unidir)
-        
-        elif id_recv in self.neighbors:
-            self.addRecvPayloadToList(_payload, self.neighbors) # update
-
+                else:
+                    self.addRecvPayloadToList(_payload, self.unidir) # add
+                    # cprint(f" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ NOWAYYYYY for {_payload['id']} @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", bcolors.FAIL)
         else:
-            self.addRecvPayloadToList(_payload, self.unidir)
-            
+            if len(self.neighbors) < N:
+                if id_recv in self.neighbors:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # update
+                elif id_recv in self.tobe:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # add
+                    node.lasts[id_recv]['ntimes'].append([time(), None])
+                    e_tobe_find.set()
+                elif id_recv in self.unidir:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # add
+                    node.lasts[id_recv]['ntimes'].append([time(), None])
+                else:
+                    self.addRecvPayloadToList(_payload, self.unidir) # add
+
+            else:
+                if id_recv in self.neighbors:
+                    self.addRecvPayloadToList(_payload, self.neighbors) # update
+                elif id_recv in self.tobe:
+                    self.addRecvPayloadToList(_payload, self.unidir) # add
+                    e_tobe_find.set()
+                elif id_recv in self.unidir:
+                    self.addRecvPayloadToList(_payload, self.unidir) # update
+                else:
+                    self.addRecvPayloadToList(_payload, self.unidir) # add
+
     def createSocket(self):
         try:
             self.socket         = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -164,6 +191,7 @@ t_neighbor_finder = None
 e_on = True
 e_running = False
 e_finder = True
+e_tobe_find = True
 
 def sendData(payload, address, drop_mode=True):
     try:
@@ -198,7 +226,7 @@ def recvData():
             node.lock_all_lists.release()
 
 def findEnoughtNodes():
-    global e_on, e_finder
+    global e_on, e_finder, e_tobe_find
     cprint(" start trying to find new neighbors", bcolors.OKBLUE)
     while True:
         e_finder.wait()
@@ -232,9 +260,9 @@ def findEnoughtNodes():
                     'ip' : 'localhost',
                     'port' : START_PORT + chosen
                 }
-
+                e_tobe_find.clear()
                 node.lock_all_lists.release()
-                sleep(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
+                e_tobe_find.wait(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
                 node.lock_all_lists.acquire()
 
                 e_on.wait()
@@ -399,7 +427,7 @@ def controller():
 
 def runNode(_queue1, _queue2, _id, _ip, _port):
     global node, queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, \
-        t_delete_old_neighbors, t_controller, e_on, e_running, e_finder
+        t_delete_old_neighbors, t_controller, e_on, e_running, e_finder, e_tobe_find
     
     queue_from_node = _queue1
     queue_to_node = _queue2
@@ -414,6 +442,9 @@ def runNode(_queue1, _queue2, _id, _ip, _port):
 
     e_finder = threading.Event()
     e_finder.set()
+
+    e_tobe_find = threading.Event()
+    e_tobe_find.set()
 
     # Creating Services Thread
     t_recv_data = threading.Thread(target=recvData)
