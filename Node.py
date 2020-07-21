@@ -456,7 +456,7 @@ def logAsJson():
 
 def controller():
     global queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, t_delete_old_neighbors, \
-        t_controller, e_on, e_running
+        t_controller, e_on, e_running, e_tobe_find
     while True:
         data = queue_from_node.get()
         if data == "off":
