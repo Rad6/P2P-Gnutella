@@ -298,29 +298,29 @@ def motherLoger():
     final_log = {}
 
     final_log["id"] = node.id
-    final_log["ip address"] = node.ip
+    final_log["ip_address"] = node.ip
     final_log["port"] = node.port
 
-    final_log['Neighbors history'] = []
+    final_log['neighbors_history'] = []
     for key, value in node.lasts.items():
         if len(value['ntimes']) != 0:
             tmp = {}
             tmp['id'] = value['id']
-            tmp['ip address'] = value['ip']
+            tmp['ip_address'] = value['ip']
             tmp['port'] = value['port']
-            tmp['packets sent'] = value['nnsent']
-            tmp['packets recv'] = value['nnrecv']
-            final_log['Neighbors history'].append(tmp)
+            tmp['packets_sent'] = value['nnsent']
+            tmp['packets_recv'] = value['nnrecv']
+            final_log['neighbors_history'].append(tmp)
 
-    final_log['Current valid neighbors'] = []
+    final_log['current_valid_neighbors'] = []
     for key, value in node.neighbors.items():
         tmp = {}
         tmp['id'] = value['id']
-        tmp['ip address'] = value['ip']
+        tmp['ip_address'] = value['ip']
         tmp['port'] = value['port']
-        final_log['Current valid neighbors'].append(tmp)
+        final_log['current_valid_neighbors'].append(tmp)
 
-    final_log['Nodes accessibilities'] = []
+    final_log['nodes_accessibilities'] = []
     for key, value in node.lasts.items():
         if len(value['ntimes']) != 0:
             tmp = {}
@@ -331,29 +331,29 @@ def motherLoger():
                 else:
                     acc_time += ( each[1] - each[0] )
             tmp['id'] = value['id']
-            tmp['ip address'] = value['ip']
+            tmp['ip_address'] = value['ip']
             tmp['port'] = value['port']
             tmp['accessibility'] = (acc_time / TIME_SIMULATION)*100
-            final_log['Nodes accessibilities'].append(tmp)
+            final_log['nodes_accessibilities'].append(tmp)
 
-    final_log['Current uni list'] = []
+    final_log['current_uni_list'] = []
     for key, value in node.unidir.items():
         tmp = {}
         tmp['id'] = value['id']
-        tmp['ip address'] = value['ip']
+        tmp['ip_address'] = value['ip']
         tmp['port'] = value['port']
-        final_log['Current uni list'].append(tmp)
+        final_log['current_uni_list'].append(tmp)
 
-    final_log['Current tobe list'] = []
+    final_log['current_tobe_list'] = []
     for key, value in node.tobe.items():
         tmp = {}
         tmp['id'] = value['id']
-        tmp['ip address'] = value['ip']
+        tmp['ip_address'] = value['ip']
         tmp['port'] = value['port']
-        final_log['Current tobe list'].append(tmp)
+        final_log['current_tobe_list'].append(tmp)
     
     file_name = 'node' + str(node.id) + '.json'
-    with open(file_name, 'w') as f:
+    with open(f"Results/{file_name}", 'w') as f:
         json.dump(final_log, f, indent=4)
 
 
