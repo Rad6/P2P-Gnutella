@@ -200,7 +200,7 @@ def sendData(payload, address, drop_mode=True):
             cprint(f" a packet is dropped", bcolors.FAIL)
     except Exception:
         cprint(" Exception Accured in sending part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
-        traceback.print_exc()
+        # traceback.print_exc()
 
 def recvData():
     global e_on
@@ -220,7 +220,7 @@ def recvData():
             node.lock_all_lists.release()
         except Exception:
             cprint(" Exception Accured in recv part of socket", bcolors.FAIL) #!import: Dont log it ----------------------------
-            traceback.print_exc()
+            # traceback.print_exc()
             node.lock_all_lists.release()
 
 def findEnoughtNodes():

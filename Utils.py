@@ -1,4 +1,4 @@
-RATIO                       = 10
+RATIO                       = 1
 N                           = 3
 N_OF_NODES                  = 6
 TIME_HELLO_INTERVAL         = 2 / RATIO
@@ -6,7 +6,7 @@ TIME_DELETE_INTERVAL        = 8 / RATIO
 TIME_SUDDEN_OFF_INTERVAL    = 10 / RATIO
 TIME_SUDDEN_OFF_DURATION    = 20 / RATIO
 LOSS_PROBABILITY            = 0.05
-TIME_SIMULATION             = 2 * 60 / RATIO
+TIME_SIMULATION             = 5 * 60 / RATIO
 T_HELLO                     = 0x001
 START_PORT                  = 8000
 
