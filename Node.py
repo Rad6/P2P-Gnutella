@@ -126,7 +126,7 @@ class Node:
                 self.addRecvPayloadToList(_payload, self.unidir)
 
         elif id_recv in self.tobe:
-            if len(self.neighbors) < 3:
+            if len(self.neighbors) < N:
                 self.addRecvPayloadToList(_payload, self.neighbors) # add
                 node.lasts[id_recv]['ntimes'].append([time(), None])
         
@@ -163,6 +163,7 @@ t_controller = None
 t_neighbor_finder = None
 e_on = True
 e_running = False
+e_finder = True
 
 def sendData(payload, address, drop_mode=True):
     try:
@@ -197,54 +198,62 @@ def recvData():
             node.lock_all_lists.release()
 
 def findEnoughtNodes():
-    global e_on
+    global e_on, e_finder
     cprint(" start trying to find new neighbors", bcolors.OKBLUE)
-    with node.lock_all_lists:
-        _len = len(list(node.neighbors))
-    while  _len < N:
+    while True:
+        e_finder.wait()
         node.lock_all_lists.acquire()
         
         e_on.wait()
         if not e_running.is_set(): # Safe point to termination
             node.lock_all_lists.release()
             break
-        
-        if len(list(node.unidir)) != 0:
-            chosen = random.sample(list(node.unidir), 1)[0]
-            temp = node.unidir[chosen]
-            del node.unidir[chosen]
-            node.neighbors[chosen] = temp # !important-------------------------------------- ---------------------------
-            node.lasts[temp['id']]['ntimes'].append([time(), None])
+
+        if len(node.neighbors) >= N:
+            e_finder.clear()
+            node.lock_all_lists.release()
+
         else:
-            chosen = random.randint(0, N_OF_NODES-1)
-            while (chosen in node.neighbors) or (chosen == node.id):
+            if len(node.unidir) != 0:
+                chosen = random.sample(list(node.unidir), 1)[0]
+                temp = node.unidir[chosen]
+                del node.unidir[chosen]
+                node.neighbors[chosen] = temp # !important-------------------------------------- ---------------------------
+                node.lasts[temp['id']]['ntimes'].append([time(), None])
+            else:
                 chosen = random.randint(0, N_OF_NODES-1)
-            
-            cprint(f" {chosen} is chosen")
-            sendData(node.createHelloPayload(chosen), ('localhost', START_PORT + chosen))
-            node.tobe[chosen] = {
-                'id' : chosen,
-                'ip' : 'localhost',
-                'port' : START_PORT + chosen
-            }
+                while (chosen in node.neighbors) or (chosen == node.id):
+                    chosen = random.randint(0, N_OF_NODES-1)
+                
+                cprint(f" {chosen} is chosen")
+                sendData(node.createHelloPayload(chosen), ('localhost', START_PORT + chosen))
+                node.tobe[chosen] = {
+                    'id' : chosen,
+                    'ip' : 'localhost',
+                    'port' : START_PORT + chosen
+                }
+
+                node.lock_all_lists.release()
+                sleep(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
+                node.lock_all_lists.acquire()
+
+                e_on.wait()
+                if not e_running.is_set(): # Safe point to termination
+                    node.lock_all_lists.release()
+                    break
+                
+                try:
+                    del node.tobe[chosen]
+                except:
+                    pass
+                
+            _len = len(node.neighbors)
+            if _len >= 3:
+                cprint(f" ############ it has {_len} negibors : {list(node.neighbors)} ###########",\
+                    bcolors.OKGREEN)
+                e_finder.clear()
 
             node.lock_all_lists.release()
-            sleep(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
-            node.lock_all_lists.acquire()
-
-            try:
-                del node.tobe[chosen]
-            except:
-                pass
-
-        _len = len(list(node.neighbors)) 
-
-        node.lock_all_lists.release()
-
-        if _len >= 3:
-            cprint(f" ############ Now becomes {_len} negibors : {list(node.neighbors)} ###########",\
-                bcolors.OKGREEN)
-            break
 
 def helloNeighbors():
     global e_on
@@ -265,7 +274,7 @@ def helloNeighbors():
         sleep(TIME_HELLO_INTERVAL)
 
 def deleteOldNeighbors():
-    global t_neighbor_finder, e_on
+    global t_neighbor_finder, e_on, e_finder
     while True:
         node.lock_all_lists.acquire()
 
@@ -285,9 +294,10 @@ def deleteOldNeighbors():
             node.lasts[_id]['ntimes'][-1][1] = time() # add exit time
             del node.neighbors[_id]
         if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
-            t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
-            t_neighbor_finder.setDaemon(False)
-            t_neighbor_finder.start()
+            # t_neighbor_finder = threading.Thread(target=findEnoughtNodes)
+            # t_neighbor_finder.setDaemon(False)
+            # t_neighbor_finder.start()
+            e_finder.set()
         
         node.lock_all_lists.release()
         sleep(TIME_HELLO_INTERVAL)
@@ -377,8 +387,8 @@ def controller():
             node.end_time = time()
             e_running.clear()
             e_on.set() # releasing those are waiting
+            e_finder.set()
             node.closeSocket()
-            # TODO: add logs to file
 
             with node.lock_all_lists:
                 motherLoger()
@@ -389,7 +399,7 @@ def controller():
 
 def runNode(_queue1, _queue2, _id, _ip, _port):
     global node, queue_from_node, queue_to_node, t_recv_data, t_send_hello_neighbors, \
-        t_delete_old_neighbors, t_controller, e_on, e_running
+        t_delete_old_neighbors, t_controller, e_on, e_running, e_finder
     
     queue_from_node = _queue1
     queue_to_node = _queue2
@@ -401,6 +411,9 @@ def runNode(_queue1, _queue2, _id, _ip, _port):
 
     e_running = threading.Event()
     e_running.set()
+
+    e_finder = threading.Event()
+    e_finder.set()
 
     # Creating Services Thread
     t_recv_data = threading.Thread(target=recvData)
