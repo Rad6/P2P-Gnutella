@@ -126,7 +126,6 @@ class Node:
                     node.lasts[id_recv]['ntimes'].append([time(), None])
                 else:
                     self.addRecvPayloadToList(_payload, self.unidir) # add
-                    # cprint(f" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ NOWAYYYYY {_payload['id']} @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", bcolors.FAIL)
             else:   
                 if id_recv in self.neighbors:
                     self.addRecvPayloadToList(_payload, self.neighbors) # update
@@ -140,7 +139,6 @@ class Node:
 
                 else:
                     self.addRecvPayloadToList(_payload, self.unidir) # add
-                    # cprint(f" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ NOWAYYYYY for {_payload['id']} @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", bcolors.FAIL)
         else:
             if len(self.neighbors) < N:
                 if id_recv in self.neighbors:
@@ -476,6 +474,7 @@ def controller():
             e_running.clear()
             e_on.set() # releasing those are waiting
             e_finder.set()
+            e_tobe_find.set()
             node.closeSocket()
 
             with node.lock_all_lists:
