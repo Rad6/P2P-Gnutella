@@ -261,8 +261,10 @@ def findEnoughtNodes():
                     'port' : START_PORT + chosen
                 }
                 e_tobe_find.clear()
+                _time = time()
                 node.lock_all_lists.release()
                 e_tobe_find.wait(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
+                cprint(f" @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ got the e_tobe_find at time {time() - _time}")
                 node.lock_all_lists.acquire()
 
                 e_on.wait()
@@ -331,7 +333,7 @@ def deleteOldNeighbors():
         sleep(TIME_HELLO_INTERVAL)
 
 
-def motherLoger():
+def logAsJson():
     cprint(" Mother Logger Does its Job")
 
     final_log = {}
@@ -454,12 +456,12 @@ def controller():
         if data == "off":
             e_on.clear()
             node.closeSocket()
-            cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~OFFFFF~~~~~~~~~~", bcolors.WARNING)
+            cprint(f" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~OFFFFF~~~~~~~~~~ time: {time()}", bcolors.WARNING)
         
         elif data == "on":
             node.createSocket()
             e_on.set()
-            cprint(" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~", bcolors.WARNING)
+            cprint(f" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ONNNNN~~~~~~~~~~ time: {time()}", bcolors.WARNING)
 
         elif data == "end":
             node.end_time = time()
@@ -469,7 +471,7 @@ def controller():
             node.closeSocket()
 
             with node.lock_all_lists:
-                motherLoger()
+                logAsJson()
 
             cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
             queue_to_node.put("done")

@@ -16,7 +16,7 @@ def randomTermination():
     while True:
         if not running:
             break
-        # time.sleep(TIME_SUDDEN_OFF_INTERVAL)
+
         e_end.wait(timeout=TIME_SUDDEN_OFF_INTERVAL)
         if not running:
             break
@@ -26,18 +26,20 @@ def randomTermination():
         sudden_offs.add(rint)
         queues_main_to_procs[rint].put("off")
         t_onner = threading.Thread(target=turnOn, args=(rint,))
-        # t_onner.setDaemon(False)
+
         t_onner.start()
         print(f"Main  :  sends off to node {rint}")
 
 def turnOn(_id):
     e_end.wait(TIME_SUDDEN_OFF_DURATION)
+    print(f"Main  :  sends on to node {_id}")
     queues_main_to_procs[_id].put("on")
     sudden_offs.remove(_id)
 
 def endSimulation():
     global running
     time.sleep(TIME_SIMULATION)
+    print("Main  :  Start an end :)")
     e_end.set()
     running = False
     for queue in queues_main_to_procs:
