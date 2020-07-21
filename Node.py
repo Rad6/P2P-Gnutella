@@ -126,14 +126,15 @@ class Node:
                 self.addRecvPayloadToList(_payload, self.unidir)
 
         elif id_recv in self.tobe:
-            self.addRecvPayloadToList(_payload, self.neighbors)
-            node.lasts[id_recv]['ntimes'].append([time(), None])
+            if len(self.neighbors) < 3:
+                self.addRecvPayloadToList(_payload, self.neighbors) # add
+                node.lasts[id_recv]['ntimes'].append([time(), None])
         
         elif id_recv in self.unidir:
             self.addRecvPayloadToList(_payload, self.unidir)
         
         elif id_recv in self.neighbors:
-            self.addRecvPayloadToList(_payload, self.neighbors)
+            self.addRecvPayloadToList(_payload, self.neighbors) # update
 
         else:
             self.addRecvPayloadToList(_payload, self.unidir)
