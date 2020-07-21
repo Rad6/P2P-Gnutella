@@ -6,8 +6,6 @@ import socket, pickle
 import json
 
 
-
-
 def cprint(msg, color=bcolors.ENDC, _node=True):
     global node
     if _node:
@@ -214,7 +212,7 @@ def findEnoughtNodes():
             chosen = random.sample(list(node.unidir), 1)[0]
             temp = node.unidir[chosen]
             del node.unidir[chosen]
-            node.neighbors[chosen] = temp # !important Fauuauakekkekk POPOPOPOPINT ---------------------------
+            node.neighbors[chosen] = temp # !important-------------------------------------- ---------------------------
             node.lasts[temp['id']]['ntimes'].append([time(), None])
         else:
             chosen = random.randint(0, N_OF_NODES-1)
@@ -233,7 +231,6 @@ def findEnoughtNodes():
             sleep(TIME_DELETE_INTERVAL) # !Important : --------------------------------------- SLEEP------------------------------
             node.lock_all_lists.acquire()
 
-            # if (chosen not in node.unidir) and (chosen not in node.neighbors):
             try:
                 del node.tobe[chosen]
             except:
@@ -284,7 +281,6 @@ def deleteOldNeighbors():
                 del_list.append(_id)
                 cprint(f" Neighbor {_id} is deleted due to TIME_DELETE_INTERVAL at last recv {node.lasts[_id]['last_recv']} and dur is {dur}", bcolors.WARNING)
         for _id in del_list:
-            # cprint(f" aksdjflkasjdflk jasldkf jaklsdjfl k : {node.lasts[_id]['ntimes']} neighbors = {node.neighbors}")
             node.lasts[_id]['ntimes'][-1][1] = time() # add exit time
             del node.neighbors[_id]
         if len(node.neighbors) < N and prev_len >= N: # start finding more nodes due to deletes
@@ -387,7 +383,6 @@ def controller():
                 motherLoger()
 
             cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
-            # cprint(f"{node.lasts}")
             queue_to_node.put("done")
             break
 
@@ -428,54 +423,3 @@ def runNode(_queue1, _queue2, _id, _ip, _port):
     t_controller.start()
 
     t_controller.join()
-    # cprint(" 8888888888888888888 END of runNode 88888888888888888888888888888888")
-    # findEnoughtNodes() # starts to find neighbors 
-
-
-
-
-
-# t_hellowtimer = None
-# t_hellowtimer_end = False
-# _id = -1
-
-# def foo():
-#     global t_hellowtimer_end
-#     global _id
-
-#     while True:
-#         if t_hellowtimer_end:
-#             sleep(20)
-#             t_hellowtimer_end = False
-#         print(f"{_id} : triggerd")
-#         sleep(1)
-
-# def end():
-#     sleep(5)
-#     global t_hellowtimer_end
-#     t_hellowtimer_end = True
-#     print("thread is killed")
-
-# def readQueueToOff(queue):
-#     global t_hellowtimer_end
-#     obj = queue.get()
-#     if obj == "off":
-#         t_hellowtimer_end = True
-#         print("off")
-#     else:
-#         print("noo")
-    
-# def gone(id):
-#     _id = id
-    
-#     t_hellowtimer = threading.Thread(target=foo)
-#     t_off         = threading.Thread(target=readQueueToOff, args=(queue, ))
-#     # t_killer      = threading.Thread(target=end)
-
-#     t_hellowtimer.start()
-#     # t_killer.start()
-#     t_off.start()
-
-#     t_off.join()
-#     # t_killer.join()
-#     t_hellowtimer.join()

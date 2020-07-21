@@ -66,9 +66,6 @@ if __name__ == "__main__":
     t_randterminator.start()
     t_endSimulation.start()
 
-    # t_randterminator.join()
-    # for item in procs:
-    #     item.join()
 
     for i in range(N_OF_NODES):
         msg = queues_procs_to_main[i].get()
@@ -79,20 +76,3 @@ if __name__ == "__main__":
 
     print("end of main proc")
     
-
-
-# if __name__ == "__main__":
-#     N = 1
-
-#     for i in range(1, N + 1):
-#         pid = os.fork()
-#         if pid == 0:
-#             os.system(f'python Node.py {i} localhost { 8080 + i }')
-#             break
-
-#     for i in range(1, N + 1):
-#         try:
-#             os.wait()
-#         except:
-#             pass
-        
