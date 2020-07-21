@@ -387,6 +387,14 @@ def logAsJson():
             if each not in vertices:
                 vertices.append(each)
 
+    for key, value in node.unidir.items():
+        if key not in vertices:
+            vertices.append(key)
+
+    for key, value in node.tobe.items():
+        if key not in vertices:
+            vertices.append(key)
+    
     # cprint("vertices: " + str(vertices))
 
     final_log['topology']['vertices'] = []
